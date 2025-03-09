@@ -68,7 +68,11 @@ async function main() {
       const room = await roomManager.initRoom({ isNew: true, info })
 
       addAutobeeListener(room)
-      const roomInfo = { ...room.info, roomId: room.roomId }
+      const roomInfo = {
+        ...room.info,
+        roomId: room.roomId,
+        invite: room.invite
+      }
       const newReq = rpc.request('newRoom')
       newReq.send(JSON.stringify(roomInfo))
       logToFrontend(z32.encode(room.autobee.key))

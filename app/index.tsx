@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react'
 import RNPickerSelect from 'react-native-picker-select'
 import {
+  Alert,
+  ActivityIndicator,
   View,
   Text,
   TextInput,
@@ -11,6 +13,8 @@ import {
   Modal
 } from 'react-native'
 
+import Clipboard from '@react-native-clipboard/clipboard'
+
 import { Worklet } from 'react-native-bare-kit'
 import bundle from './app.bundle'
 import RPC from 'bare-rpc'
@@ -20,11 +24,18 @@ import { Float } from 'react-native/Libraries/Types/CodegenTypes'
 export default function App() {
   const [rooms, setRooms] = useState<Record<string, Room>>({})
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
-  const [inviteInput, setInviteInput] = useState('')
+  const [invite, setInvite] = useState<string>('')
+  const [inviteInput, setInviteInput] = useState<string>('')
   const [roomForm, setRoomForm] = useState<Record<string, RoomForm>>({})
-  const [createRoomModalVisible, setCreateRoomModalVisible] = useState(false)
-  const [expenditureModalVisible, setExpenditureModalVisible] = useState(false)
-  const [usernameModalVisible, setUsernameModalVisible] = useState(false)
+  const [isInitialized, setIsInitialized] = useState<boolean>(false)
+
+  const [createRoomModalVisible, setCreateRoomModalVisible] =
+    useState<boolean>(false)
+  const [expenditureModalVisible, setExpenditureModalVisible] =
+    useState<boolean>(false)
+  const [usernameModalVisible, setUsernameModalVisible] =
+    useState<boolean>(false)
+
   const [username, setUsername] = useState<string>('')
   const [expenditureForm, setExpenditureForm] = useState<
     Record<string, Expenditure>
@@ -48,6 +59,8 @@ export default function App() {
               ...prevRooms,
               [newRoom.roomId]: newRoom
             }))
+            setInvite(newRoom.invite)
+            console.log(newRoom)
           }
 
           if (req.command === 'newEntry' && req.data) {
@@ -75,6 +88,7 @@ export default function App() {
       const req = rpcRef.current.request('joinRoom')
       req.send(inviteInput)
       setInviteInput('')
+      setCreateRoomModalVisible(false)
     } else {
       console.error('No RPC reference stored')
     }
@@ -82,6 +96,7 @@ export default function App() {
 
   const createRoom = () => {
     // FIX-BUG: user can change title or emoji back to nothing and crash
+    setIsInitialized(true)
     if (rpcRef.current && Object.keys(roomForm).length > 1) {
       try {
         const req = rpcRef.current.request('createRoom')
@@ -89,11 +104,15 @@ export default function App() {
       } catch (err) {
         console.error('error in rpc', err)
       }
-      setCreateRoomModalVisible(false)
-      setRoomForm({})
     } else {
       console.error('please select title and emoji')
     }
+  }
+
+  const closeCreateRoomModal = () => {
+    setCreateRoomModalVisible(false)
+    setIsInitialized(false)
+    setRoomForm({})
   }
 
   const openRoom = (roomId: string) => {
@@ -210,6 +229,11 @@ export default function App() {
       0
     )
     return total
+  }
+
+  const copyToClipboard = () => {
+    Clipboard.setString(invite)
+    Alert.alert('Copied!', 'Invite has been copied to clipboard.')
   }
 
   const currentRoom = rooms[currentRoomId || '']
@@ -425,76 +449,105 @@ export default function App() {
         transparent={true}
         visible={createRoomModalVisible}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>New Room</Text>
+        {!isInitialized ? (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>New Room</Text>
 
-            {/* Invite Input */}
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder='Enter invite key...'
-                placeholderTextColor='#aaa'
-                value={inviteInput}
-                onChangeText={setInviteInput}
-              />
-              <Button title='Join Room' onPress={joinRoom} color='#b0d943' />
-            </View>
+              {/* Invite Input */}
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder='Enter invite key...'
+                  placeholderTextColor='#aaa'
+                  value={inviteInput}
+                  onChangeText={setInviteInput}
+                />
+                <Button title='Join Room' onPress={joinRoom} color='#b0d943' />
+              </View>
 
-            {/* Room Creation Form */}
-            <View style={styles.inputRow}>
-              {/* Emoji Picker */}
-              <View style={styles.emojiPicker}>
-                <RNPickerSelect
-                  onValueChange={(emoji) =>
-                    setRoomForm((prev) => ({ ...prev, emoji }))
+              {/* Room Creation Form */}
+              <View style={styles.inputRow}>
+                {/* Emoji Picker */}
+                <View style={styles.emojiPicker}>
+                  <RNPickerSelect
+                    onValueChange={(emoji) =>
+                      setRoomForm((prev) => ({ ...prev, emoji }))
+                    }
+                    value={roomForm.emoji}
+                    items={[
+                      { label: '😀', value: '😀' },
+                      { label: '🕺', value: '🕺' },
+                      { label: '⛷️', value: '⛷️' },
+                      { label: '🚢', value: '🚢' },
+                      { label: '🏖️', value: '🏖️' },
+                      { label: '🇯🇵', value: '🇯🇵' }
+                    ]}
+                    style={{
+                      inputAndroid: styles.emojiInput,
+                      inputIOS: styles.emojiInput
+                    }}
+                  />
+                </View>
+
+                {/* Room Name Input */}
+                <TextInput
+                  style={[styles.input, { width: '80%' }]}
+                  placeholder='Room Name'
+                  placeholderTextColor='#aaa'
+                  value={roomForm.name}
+                  onChangeText={(name) =>
+                    setRoomForm((prev) => ({ ...prev, name }))
                   }
-                  value={roomForm.emoji}
-                  items={[
-                    { label: '😀', value: '😀' },
-                    { label: '🕺', value: '🕺' },
-                    { label: '⛷️', value: '⛷️' },
-                    { label: '🚢', value: '🚢' },
-                    { label: '🏖️', value: '🏖️' },
-                    { label: '🇯🇵', value: '🇯🇵' }
-                  ]}
-                  style={{
-                    inputAndroid: styles.emojiInput,
-                    inputIOS: styles.emojiInput
-                  }}
                 />
               </View>
 
-              {/* Room Name Input */}
-              <TextInput
-                style={[styles.input, { width: '80%' }]}
-                placeholder='Room Name'
-                placeholderTextColor='#aaa'
-                value={roomForm.name}
-                onChangeText={(name) =>
-                  setRoomForm((prev) => ({ ...prev, name }))
-                }
-              />
-            </View>
+              {/* Action Buttons */}
+              <View style={styles.buttonContainer}>
+                <Button
+                  title='Create Room'
+                  onPress={createRoom}
+                  color='#1E90FF'
+                />
+              </View>
 
-            {/* Action Buttons */}
-            <View style={styles.buttonContainer}>
-              <Button
-                title='Create Room'
-                onPress={createRoom}
-                color='#1E90FF'
-              />
+              {/* Close Modal */}
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={closeCreateRoomModal}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Close Modal */}
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setCreateRoomModalVisible(false)}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        ) : (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>
+                {roomForm.emoji} {roomForm.name}
+              </Text>
+
+              {/* Created Invite */}
+              {invite ? (
+                <TouchableOpacity onPress={copyToClipboard}>
+                  <Text style={styles.roomMembers}>{invite}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.container}>
+                  <ActivityIndicator size='large' color='#666' />
+                </View>
+              )}
+
+              {/* Close Modal */}
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={closeCreateRoomModal}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </Modal>
 
       {/* Modal for Editing UserName */}
@@ -551,6 +604,7 @@ type Room = {
   name: string
   members: Array<Member>
   expenditures: Array<Expenditure>
+  invite: string
 }
 
 type Expenditure = {
