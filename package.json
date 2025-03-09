@@ -9,6 +9,7 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
+    "@react-native-clipboard/clipboard": "^1.16.2",
     "@react-native-picker/picker": "^2.11.0",
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/native-stack": "^7.2.0",
