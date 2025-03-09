@@ -13,14 +13,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.example.myapp"
+      "bundleIdentifier": "com.wsi.oweno"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.example.myapp"
+      "package": "com.wsi.oweno"
     },
     "plugins": [
       ["expo-router"],

@@ -29,6 +29,7 @@ export default function App() {
   const [roomForm, setRoomForm] = useState<Record<string, RoomForm>>({})
   const [isInitialized, setIsInitialized] = useState<boolean>(false)
   const [clickedDebt, setClickedDebt] = useState<string>('')
+  const [clickedExpenditure, setClickedExpenditure] = useState<string>('')
 
   const [createRoomModalVisible, setCreateRoomModalVisible] =
     useState<boolean>(false)
@@ -133,44 +134,42 @@ export default function App() {
   }
 
   const createExpenditure = () => {
+    setExpenditureForm({})
     setExpenditureModalVisible(true)
   }
 
   const deleteExpenditure = () => {
     if (rpcRef.current) {
+      const data = {
+        roomId: currentRoom.roomId,
+        expenditureId: clickedExpenditure
+      }
       const req = rpcRef.current.request('deleteExpenditure')
-      // send
+      req.send(JSON.stringify(data))
     } else {
       console.error('No RPC reference stored')
     }
-  }
-
-  const updateExpenditure = () => {
-    if (rpcRef.current) {
-      const req = rpcRef.current.request('updateExpenditure')
-      // send
-    } else {
-      console.error('No RPC reference stored')
-    }
+    setExpenditureModalVisible(false)
   }
 
   const saveExpenditure = () => {
-    if (
-      rpcRef.current &&
-      expenditureForm.emoji &&
-      expenditureForm.name &&
-      Object.keys(participants).length > 0 &&
-      Object.values(participants).reduce((acc, c) => acc + c, 0) > 0
-    ) {
-      const req = rpcRef.current.request('createExpenditure')
-      // Send data to save
+    if (rpcRef.current) {
       const expenditure = {
-        name: expenditureForm.name,
-        emoji: expenditureForm.emoji,
-        participants,
-        value: expenditureForm.value
+        ...expenditureForm,
+        participants
       }
-      const data = { expenditure, roomId: currentRoomId }
+      if (!expenditure.emoji) expenditure.emoji = '👹'
+      if (!expenditure.name) expenditure.name = 'Mortal souls'
+      if (!expenditure.value) expenditure.value = '666'
+      if (Object.values(participants).reduce((acc, c) => acc + c, 0) < 1) {
+        expenditure.participants = Object.fromEntries(
+          Object.keys(currentRoom.members).map((member) => [member, 1])
+        )
+      }
+      const req = rpcRef.current.request('saveExpenditure')
+      // Send data to save
+
+      const data = { expenditure, roomId: currentRoom.roomId }
       req.send(JSON.stringify(data))
       setExpenditureModalVisible(false)
       setParticipants({})
@@ -203,11 +202,11 @@ export default function App() {
     }
   }
 
-  const markSettled = () => {
+  const markSettled = (room) => {
     if (rpcRef.current && clickedDebt) {
       const data = {
         transferId: clickedDebt,
-        roomId: currentRoom.roomId
+        roomId: room.roomId
       }
       const req = rpcRef.current.request('settleDebt')
       req.send(JSON.stringify(data))
@@ -215,8 +214,14 @@ export default function App() {
       console.log('error in rpc of clicked debt')
     }
     setSettleDebtModalVisible(false)
-
     setClickedDebt('')
+  }
+
+  const showExpenditureForm = (expenditure) => {
+    setClickedExpenditure(expenditure.id)
+    setExpenditureForm(expenditure)
+    setParticipants(expenditure.participants)
+    setExpenditureModalVisible(true)
   }
 
   const isExpenditureCreator = (expenditure, myId) => {
@@ -238,16 +243,16 @@ export default function App() {
   }
   /// THESE NEED TO BE UPTDATED (.transfers not .expenditures)
   const getTotalOweValueRoom = (room) => {
-    function isMe(transfer) {}
-
-    if (room && room.transfers) {
+    if (room && room.transfers && Object.keys(room.transfers).length > 0) {
       const total = Object.values(room.transfers).reduce(
         (acc, transfer) =>
-          transfer.to === room.myId
-            ? acc + transfer.value
-            : transfer.from === room.myId
-              ? acc - transfer.value
-              : acc + 0,
+          !transfer.settled
+            ? transfer.to === room.myId
+              ? acc + transfer.value
+              : transfer.from === room.myId
+                ? acc - transfer.value
+                : acc + 0
+            : acc + 0,
         0
       )
       return total
@@ -270,7 +275,8 @@ export default function App() {
 
   const MultiHighlightText: React.FC<MultiHighlightTextProps> = ({
     text,
-    highlights
+    highlights,
+    isSettled
   }) => {
     let parts: (string | Highlight)[] = [text]
 
@@ -292,17 +298,37 @@ export default function App() {
       <Text>
         {parts.map((part, index) =>
           typeof part === 'string' ? (
-            <Text style={{ fontSize: 20, color: '#fff' }} key={index}>
+            <Text
+              style={
+                !isSettled
+                  ? { fontSize: 20, color: '#fff' }
+                  : {
+                      fontSize: 20,
+                      color: '#fff',
+                      textDecorationLine: 'line-through'
+                    }
+              }
+              key={index}
+            >
               {part}
             </Text>
           ) : (
             <Text
               key={index}
-              style={{
-                color: part.color,
-                fontSize: 20,
-                fontWeight: 'bold'
-              }}
+              style={
+                !isSettled
+                  ? {
+                      color: part.color,
+                      fontSize: 20,
+                      fontWeight: 'bold'
+                    }
+                  : {
+                      color: part.color,
+                      fontSize: 20,
+                      fontWeight: 'bold',
+                      textDecorationLine: 'line-through'
+                    }
+              }
             >
               {part.word}
             </Text>
@@ -316,10 +342,10 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      {/* Transfers Screen */}
       {currentRoomId ? (
         roomDebtsVisible ? (
           allInbalancesVisible ? (
+            // All Transfers Screen
             <View style={styles.roomContainer}>
               <View style={styles.header}>
                 <TouchableOpacity
@@ -349,24 +375,27 @@ export default function App() {
               <FlatList
                 data={Object.values(currentRoom.transfers).slice().reverse()}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => {
-                  if (item.from === currentRoom.myId) {
-                    return (
-                      <View style={styles.roomItem}>
-                        <Text style={styles.roomEmoji}>💸</Text>
-                        <View style={styles.roomInfo}>
-                          <Text
-                            style={styles.roomName}
-                          >{`${item.value.toFixed(2)} From ${currentRoom.members[item.from].name} To ${currentRoom.members[item.to].name}`}</Text>
-                        </View>
-                      </View>
-                    )
-                  } else if (item.to === currentRoom.myId) {
-                  }
-                }}
+                renderItem={({ item }) => (
+                  <View style={styles.roomItem}>
+                    <Text style={styles.roomEmoji}>💸</Text>
+                    <View style={styles.roomInfo}>
+                      <Text
+                        style={
+                          !item.settled
+                            ? styles.roomName
+                            : {
+                                ...styles.roomName,
+                                textDecorationLine: 'line-through'
+                              }
+                        }
+                      >{`${item.value.toFixed(2)} From ${currentRoom.members[item.from].name} To ${currentRoom.members[item.to].name}`}</Text>
+                    </View>
+                  </View>
+                )}
               />
             </View>
           ) : (
+            // My Transfers Screen
             <View style={styles.roomContainer}>
               <View style={styles.header}>
                 <TouchableOpacity onPress={() => setRoomDebtsVisible(false)}>
@@ -410,12 +439,22 @@ export default function App() {
                       >
                         <MultiHighlightText
                           text={`💰️ ${item.value.toFixed(2)} From ${currentRoom.members[item.from].name}`}
-                          highlights={[
-                            {
-                              word: `${item.value.toFixed(2)}`,
-                              color: '#228B22'
-                            }
-                          ]}
+                          highlights={
+                            !item.settled
+                              ? [
+                                  {
+                                    word: `${item.value.toFixed(2)}`,
+                                    color: '#38b04a'
+                                  }
+                                ]
+                              : [
+                                  {
+                                    word: `${item.value.toFixed(2)}`,
+                                    color: '#427d56'
+                                  }
+                                ]
+                          }
+                          isSettled={item.settled}
                         />
                       </TouchableOpacity>
                     )
@@ -430,12 +469,22 @@ export default function App() {
                       >
                         <MultiHighlightText
                           text={`${item.value.toFixed(2)} To ${currentRoom.members[item.to].name} 💸`}
-                          highlights={[
-                            {
-                              word: `${item.value.toFixed(2)}`,
-                              color: '#A52A2A'
-                            }
-                          ]}
+                          highlights={
+                            !item.settled
+                              ? [
+                                  {
+                                    word: `${item.value.toFixed(2)}`,
+                                    color: '#b03844'
+                                  }
+                                ]
+                              : [
+                                  {
+                                    word: `${item.value.toFixed(2)}`,
+                                    color: '#7d4248'
+                                  }
+                                ]
+                          }
+                          isSettled={item.settled}
                         />
                       </TouchableOpacity>
                     )
@@ -486,7 +535,10 @@ export default function App() {
               data={Object.values(currentRoom.expenditures).slice().reverse()}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.roomItem}>
+                <TouchableOpacity
+                  style={styles.roomItem}
+                  onPress={() => showExpenditureForm(item)}
+                >
                   <Text style={styles.roomEmoji}>{item.emoji}</Text>
                   <View style={styles.roomInfo}>
                     <Text style={styles.roomName}>{item.name}</Text>
@@ -549,12 +601,16 @@ export default function App() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-              Do you want to Settle This Debt?
+              {`Do you want to ${!currentRoom?.transfers[clickedDebt]?.settled ? 'SETTLE' : 'UNSETTLE'} This Debt?`}
             </Text>
 
             {/* Action Buttons */}
             <View style={styles.buttonContainer}>
-              <Button title='Yes' onPress={markSettled} color='#1E90FF' />
+              <Button
+                title='Yes'
+                onPress={() => markSettled(currentRoom)}
+                color='#1E90FF'
+              />
             </View>
 
             {/* Close Modal */}
@@ -602,6 +658,7 @@ export default function App() {
                     { label: '💸', value: '💸' },
                     { label: '🎉', value: '🎉' },
                     { label: '🚗', value: '🚗' },
+                    { label: '👹', value: '👹' },
                     { label: '🏠', value: '🏠' }
                   ]}
                   style={{
