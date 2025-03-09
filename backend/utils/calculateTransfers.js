@@ -1,5 +1,5 @@
 const sodium = require('sodium-native')
-const b4a = require('b4a')
+const z32 = require('z32')
 
 function calculateTransfers(room) {
   // Step 1: Calculate the net balance for each member
@@ -42,10 +42,12 @@ function calculateTransfers(room) {
     const creditor = creditors[creditorIndex]
 
     const transferAmount = Math.min(debtor.value, creditor.value)
-    const id = Buffer.alloc(32)
-    sodium.randombytes_buf(id)
+    const buff = Buffer.alloc(32)
+    sodium.randombytes_buf(buff)
+    const id = z32.encode(buff, 'hex')
+
     transfers[id] = {
-      id: b4a.from(id),
+      id,
       date: Date.now(), // Current time as transaction timestamp
       from: debtor.personId,
       to: creditor.personId,

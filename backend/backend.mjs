@@ -92,7 +92,7 @@ async function main() {
       expenditure.creator = roomManager.rooms[roomId].myId
       const expenditureKey = Buffer.alloc(32)
       sodium.randombytes_buf(expenditureKey)
-      expenditure.id = b4a.from(expenditureKey)
+      expenditure.id = b4a.toString(expenditureKey, 'hex')
 
       try {
         const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
@@ -127,6 +127,21 @@ async function main() {
         await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
       } catch (err) {
         console.error('Error writing to Autobee:', err)
+      }
+    }
+
+    if (req.command === 'settleDebt') {
+      const parsedData = JSON.parse(b4a.toString(req.data))
+      const transferId = parsedData.transferId
+      const roomId = parsedData.roomId
+      try {
+        const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
+        Object.keys(roomInfo.transfers).forEach((id) =>
+          transferId === id ? delete roomInfo.transfers[id] : null
+        )
+        await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
+      } catch (err) {
+        console.error('Error writing to Autobee', err)
       }
     }
   })

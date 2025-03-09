@@ -28,6 +28,7 @@ export default function App() {
   const [inviteInput, setInviteInput] = useState<string>('')
   const [roomForm, setRoomForm] = useState<Record<string, RoomForm>>({})
   const [isInitialized, setIsInitialized] = useState<boolean>(false)
+  const [clickedDebt, setClickedDebt] = useState<string>('')
 
   const [createRoomModalVisible, setCreateRoomModalVisible] =
     useState<boolean>(false)
@@ -37,6 +38,8 @@ export default function App() {
     useState<boolean>(false)
   const [roomDebtsVisible, setRoomDebtsVisible] = useState<boolean>(false)
   const [allInbalancesVisible, setAllInbalancesVisible] =
+    useState<boolean>(false)
+  const [settleDebtModalVisible, setSettleDebtModalVisible] =
     useState<boolean>(false)
 
   const [username, setUsername] = useState<string>('')
@@ -200,6 +203,22 @@ export default function App() {
     }
   }
 
+  const markSettled = () => {
+    if (rpcRef.current && clickedDebt) {
+      const data = {
+        transferId: clickedDebt,
+        roomId: currentRoom.roomId
+      }
+      const req = rpcRef.current.request('settleDebt')
+      req.send(JSON.stringify(data))
+    } else {
+      console.log('error in rpc of clicked debt')
+    }
+    setSettleDebtModalVisible(false)
+
+    setClickedDebt('')
+  }
+
   const isExpenditureCreator = (expenditure, myId) => {
     return expenditure.creator === myId
   }
@@ -217,11 +236,18 @@ export default function App() {
       ? value - (value / totalParts) * myParts
       : -((value / totalParts) * myParts)
   }
-
+  /// THESE NEED TO BE UPTDATED (.transfers not .expenditures)
   const getTotalOweValueRoom = (room) => {
-    if (room && room.expenditures) {
-      const total = Object.values(room.expenditures).reduce(
-        (acc, expenditure) => acc + getOweByParts(expenditure, room.myId),
+    function isMe(transfer) {}
+
+    if (room && room.transfers) {
+      const total = Object.values(room.transfers).reduce(
+        (acc, transfer) =>
+          transfer.to === room.myId
+            ? acc + transfer.value
+            : transfer.from === room.myId
+              ? acc - transfer.value
+              : acc + 0,
         0
       )
       return total
@@ -236,8 +262,6 @@ export default function App() {
     )
     return total
   }
-
-  const markSettled = () => {}
 
   const copyToClipboard = () => {
     Clipboard.setString(invite)
@@ -379,7 +403,10 @@ export default function App() {
                     return (
                       <TouchableOpacity
                         style={styles.InbalanceItem}
-                        onPress={markSettled}
+                        onPress={() => {
+                          setClickedDebt(item.id)
+                          setSettleDebtModalVisible(true)
+                        }}
                       >
                         <MultiHighlightText
                           text={`💰️ ${item.value.toFixed(2)} From ${currentRoom.members[item.from].name}`}
@@ -396,7 +423,10 @@ export default function App() {
                     return (
                       <TouchableOpacity
                         style={styles.InbalanceItemReverse}
-                        onPress={markSettled}
+                        onPress={() => {
+                          setClickedDebt(item.id)
+                          setSettleDebtModalVisible(true)
+                        }}
                       >
                         <MultiHighlightText
                           text={`${item.value.toFixed(2)} To ${currentRoom.members[item.to].name} 💸`}
@@ -509,6 +539,34 @@ export default function App() {
           />
         </View>
       )}
+
+      {/* Settle Debt Modal */}
+      <Modal
+        animationType='slide'
+        transparent={true}
+        visible={settleDebtModalVisible}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>
+              Do you want to Settle This Debt?
+            </Text>
+
+            {/* Action Buttons */}
+            <View style={styles.buttonContainer}>
+              <Button title='Yes' onPress={markSettled} color='#1E90FF' />
+            </View>
+
+            {/* Close Modal */}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setSettleDebtModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Cancle</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Expenditure Modal */}
       <Modal
