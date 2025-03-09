@@ -75,20 +75,20 @@ function calculateTransfers(room) {
   return transfers
 }
 
-function isExpenditureCreator(expenditure, myId) {
-  return expenditure.creator === myId
+function isExpenditureCreator(expenditure, participantId) {
+  return expenditure.creator === participantId
 }
 
-function getOweByParts(expenditure, myId) {
+function getOweByParts(expenditure, participantId) {
   const value = expenditure.value
 
-  const myParts = expenditure.participants[myId]
+  const myParts = expenditure.participants[participantId]
   const totalParts = Object.values(expenditure.participants).reduce(
     (acc, c) => acc + c,
     0
   )
 
-  return isExpenditureCreator(expenditure, myId)
+  return isExpenditureCreator(expenditure, participantId)
     ? value - (value / totalParts) * myParts
     : -((value / totalParts) * myParts)
 }

@@ -6,13 +6,11 @@ import sodium from 'sodium-native'
 import RoomManager from './lib/RoomManager'
 import { calculateTransfers } from './utils/calculateTransfers'
 
-// TODO: Persistance in joining nodes
-
 const { IPC } = BareKit
 
 const storagePath =
   Bare.argv[0] === 'android'
-    ? '/data/data/com.example.myapp/owe-no'
+    ? '/data/data/com.wsi.oweno/owe-no'
     : './tmp/owe-no/'
 
 if (!fs.existsSync(storagePath)) {
@@ -83,16 +81,19 @@ async function main() {
       logToFrontend(`Invite key: ${room.invite}`)
     }
 
-    if (req.command === 'createExpenditure') {
-      logToFrontend('creating new Expenditure')
+    if (req.command === 'saveExpenditure') {
+      logToFrontend('saving Expenditure')
       const parsedData = JSON.parse(b4a.toString(req.data))
 
       const roomId = parsedData.roomId
       const expenditure = parsedData.expenditure
       expenditure.creator = roomManager.rooms[roomId].myId
       const expenditureKey = Buffer.alloc(32)
-      sodium.randombytes_buf(expenditureKey)
-      expenditure.id = b4a.toString(expenditureKey, 'hex')
+
+      if (!expenditure.id) {
+        sodium.randombytes_buf(expenditureKey)
+        expenditure.id = b4a.toString(expenditureKey, 'hex')
+      }
 
       try {
         const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
@@ -101,14 +102,33 @@ async function main() {
           [expenditure.id]: expenditure
         }
 
-        const transferInfo = { ...roomInfo, myId: expenditure.creator }
-        const transfers = calculateTransfers(transferInfo)
-        logToFrontend(JSON.stringify(transfers))
-        roomInfo.transfers = { ...roomInfo.transfers, ...transfers }
+        logToFrontend(JSON.stringify(calculateTransfers(roomInfo)))
+        // TODO: Need to add "deprecated"
+        roomInfo.transfers = calculateTransfers(roomInfo)
 
         await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
       } catch (err) {
         console.error('Error writing to Autobee:', err)
+      }
+    }
+
+    if (req.command === 'deleteExpenditure') {
+      logToFrontend('deleting Expenditure')
+      const parsedData = JSON.parse(b4a.toString(req.data))
+      const roomId = parsedData.roomId
+      const expenditureId = parsedData.expenditureId
+      try {
+        const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
+        if (expenditureId in roomInfo.expenditures) {
+          delete roomInfo.expenditures[expenditureId]
+
+          logToFrontend(JSON.stringify(calculateTransfers(roomInfo)))
+          // TODO: Need to add "deprecated"
+          roomInfo.transfers = calculateTransfers(roomInfo)
+          await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
+        }
+      } catch (err) {
+        console.error('Error in updating Autobee', err)
       }
     }
 
@@ -136,8 +156,13 @@ async function main() {
       const roomId = parsedData.roomId
       try {
         const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
+        // on matching id, switch true/false settled state
         Object.keys(roomInfo.transfers).forEach((id) =>
-          transferId === id ? delete roomInfo.transfers[id] : null
+          transferId === id
+            ? roomInfo.transfers[id].settled === true
+              ? (roomInfo.transfers[id].settled = false)
+              : (roomInfo.transfers[id].settled = true)
+            : null
         )
         await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
       } catch (err) {
