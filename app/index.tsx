@@ -35,6 +35,7 @@ export default function App() {
     useState<boolean>(false)
   const [usernameModalVisible, setUsernameModalVisible] =
     useState<boolean>(false)
+  const [roomDebtsVisible, setRoomDebtsVisible] = useState<boolean>(false)
 
   const [username, setUsername] = useState<string>('')
   const [expenditureForm, setExpenditureForm] = useState<
@@ -97,8 +98,11 @@ export default function App() {
   const createRoom = () => {
     // FIX-BUG: user can change title or emoji back to nothing and crash
     setIsInitialized(true)
-    if (rpcRef.current && Object.keys(roomForm).length > 1) {
+    if (rpcRef.current) {
       try {
+        const finishedForm = roomForm
+        if (!finishedForm.emoji) finishedForm.emoji = '🥶'
+        if (!finishedForm.name) finishedForm.name = 'Chill Debtors'
         const req = rpcRef.current.request('createRoom')
         req.send(JSON.stringify(roomForm))
       } catch (err) {
@@ -240,57 +244,102 @@ export default function App() {
 
   return (
     <View style={styles.container}>
+      {/* Transfers Screen */}
       {currentRoomId ? (
-        // Room Screen
-        <View style={styles.roomContainer}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={closeRoom}>
-              <Text style={styles.backButton}>{'<'}</Text>
-            </TouchableOpacity>
-            <Text style={styles.roomHeader}>
-              {currentRoom?.emoji} {currentRoom?.name}
-            </Text>
-            <Button
-              title='Change Username'
-              onPress={() => setUsernameModalVisible(true)}
-              color='#FF5733'
+        roomDebtsVisible ? (
+          <View style={styles.roomContainer}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => setRoomDebtsVisible(false)}>
+                <Text style={styles.backButton}>{'<'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.roomHeader}>
+                {currentRoom?.emoji} {currentRoom?.name}
+              </Text>
+              <Button
+                title='Change Username'
+                onPress={() => setUsernameModalVisible(true)}
+                color='#FF5733'
+              />
+            </View>
+
+            <View style={styles.header}>
+              <Text style={styles.roomHeader}>Settle Your Inbalances:</Text>
+            </View>
+
+            {/* Inbalances List */}
+            <FlatList
+              data={Object.values(currentRoom.transfers).slice().reverse()}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.roomItem}>
+                  <Text style={styles.roomEmoji}>{item.emoji}</Text>
+                  <View style={styles.roomInfo}>
+                    <Text
+                      style={styles.roomName}
+                    >{`${item.value.toFixed(2)} From ${currentRoom.members[item.from].name} To ${currentRoom.members[item.to].name}`}</Text>
+                    <Text
+                      style={styles.roomMembers}
+                    >{`${isExpenditureCreator(item, currentRoom.myId) ? "You're Owed:" : 'You Owe:'} ${getOweByParts(item, currentRoom.myId).toFixed(2)}`}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             />
           </View>
-          <View style={styles.header}>
-            <Text style={styles.roomHeader}>
-              {getTotalOweValueRoom(currentRoom) < 0
-                ? `You Owe: ${getTotalOweValueRoom(currentRoom).toFixed(2)}`
-                : `You're Owed: ${getTotalOweValueRoom(currentRoom).toFixed(2)}`}
-            </Text>
-          </View>
-
-          {/* Create Expenditure Button */}
-          <TouchableOpacity
-            style={styles.createExpenditureButton}
-            onPress={() => createExpenditure()}
-          >
-            <Text style={styles.createExpenditureButtonText}>
-              Create Expenditure
-            </Text>
-          </TouchableOpacity>
-
-          {/* Expenditures List */}
-          <FlatList
-            data={Object.values(currentRoom.expenditures).slice().reverse()}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.roomItem}>
-                <Text style={styles.roomEmoji}>{item.emoji}</Text>
-                <View style={styles.roomInfo}>
-                  <Text style={styles.roomName}>{item.name}</Text>
-                  <Text
-                    style={styles.roomMembers}
-                  >{`${isExpenditureCreator(item, currentRoom.myId) ? "You're Owed:" : 'You Owe:'} ${getOweByParts(item, currentRoom.myId).toFixed(2)}`}</Text>
-                </View>
+        ) : (
+          // Room Screen
+          <View style={styles.roomContainer}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={closeRoom}>
+                <Text style={styles.backButton}>{'<'}</Text>
               </TouchableOpacity>
-            )}
-          />
-        </View>
+              <Text style={styles.roomHeader}>
+                {currentRoom?.emoji} {currentRoom?.name}
+              </Text>
+              <Button
+                title='Change Username'
+                onPress={() => setUsernameModalVisible(true)}
+                color='#FF5733'
+              />
+            </View>
+            <TouchableOpacity
+              style={styles.header}
+              onPress={() => setRoomDebtsVisible(true)}
+            >
+              <Text style={styles.roomHeader}>
+                {getTotalOweValueRoom(currentRoom) < 0
+                  ? `You Owe: ${getTotalOweValueRoom(currentRoom).toFixed(2)}`
+                  : `You're Owed: ${getTotalOweValueRoom(currentRoom).toFixed(2)}`}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Create Expenditure Button */}
+            <TouchableOpacity
+              style={styles.createExpenditureButton}
+              onPress={() => createExpenditure()}
+            >
+              <Text style={styles.createExpenditureButtonText}>
+                Create Expenditure
+              </Text>
+            </TouchableOpacity>
+
+            {/* Expenditures List */}
+            <FlatList
+              data={Object.values(currentRoom.expenditures).slice().reverse()}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.roomItem}>
+                  <Text style={styles.roomEmoji}>{item.emoji}</Text>
+                  <View style={styles.roomInfo}>
+                    <Text style={styles.roomName}>{item.name}</Text>
+                    <Text
+                      style={styles.roomMembers}
+                    >{`${isExpenditureCreator(item, currentRoom.myId) ? "You're Owed:" : 'You Owe:'} ${getOweByParts(item, currentRoom.myId).toFixed(2)}`}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )
       ) : (
         // Room List
         <View style={styles.roomListContainer}>
@@ -392,34 +441,36 @@ export default function App() {
 
             {/* Participants */}
             <View style={styles.participantList}>
-              {currentRoom?.members.map((member) => (
-                <View key={member.id} style={styles.participantItem}>
-                  <Text style={styles.participantName}>{member.name}</Text>
-                  <View style={styles.participantAmount}>
-                    <Button
-                      title='-'
-                      onPress={() =>
-                        handleParticipantChange(
-                          member.id,
-                          Math.max(0, participants[member.id] - 1)
-                        )
-                      }
-                    />
-                    <Text style={styles.amountText}>
-                      {participants[member.id] || 0}
-                    </Text>
-                    <Button
-                      title='+'
-                      onPress={() =>
-                        handleParticipantChange(
-                          member.id,
-                          (participants[member.id] || 0) + 1
-                        )
-                      }
-                    />
+              {currentRoom &&
+                Object.entries(currentRoom.members).map(([id, member]) => (
+                  <View key={id} style={styles.participantItem}>
+                    <Text style={styles.participantName}>{member.name}</Text>
+                    <View style={styles.participantAmount}>
+                      <Button
+                        title='-'
+                        onPress={() =>
+                          handleParticipantChange(
+                            id, // pass the member id
+                            Math.max(0, participants[id] - 1) // adjust the participants count for this member
+                          )
+                        }
+                      />
+                      <Text style={styles.amountText}>
+                        {participants[id] || 0}{' '}
+                        {/* show the participant count, default to 0 if undefined */}
+                      </Text>
+                      <Button
+                        title='+'
+                        onPress={() =>
+                          handleParticipantChange(
+                            id, // pass the member id
+                            (participants[id] || 0) + 1 // increment the participants count for this member
+                          )
+                        }
+                      />
+                    </View>
                   </View>
-                </View>
-              ))}
+                ))}
             </View>
 
             {/* Action Buttons */}
@@ -602,9 +653,18 @@ type Room = {
   emoji: string
   userName: string
   name: string
-  members: Array<Member>
+  members: Record<string, Member>
   expenditures: Array<Expenditure>
+  transfers: Array<Transfer>
   invite: string
+}
+
+type Transfer = {
+  date: number
+  from: string
+  to: string
+  value: Float
+  settled: boolean
 }
 
 type Expenditure = {
@@ -617,7 +677,6 @@ type Expenditure = {
 }
 
 type Member = {
-  id: string
   name: string
 }
 

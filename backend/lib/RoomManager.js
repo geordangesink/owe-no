@@ -397,18 +397,19 @@ class Room extends ReadyResource {
       const roomInfo = await this.autobee.get('roomInfo')
 
       if (roomInfo) {
-        roomInfo.members.push({
-          name: this.info.userName,
-          id: this.myId
-        })
+        roomInfo.members = {
+          ...roomInfo.members,
+          [this.myId]: {
+            name: this.info.userName
+          }
+        }
         this.info = roomInfo
       } else {
-        this.info.members = [
-          {
-            name: this.info.userName,
-            id: this.myId
+        this.info.members = {
+          [this.myId]: {
+            name: this.info.userName
           }
-        ]
+        }
       }
 
       await this.autobee.put('roomInfo', this.info)

@@ -4,6 +4,7 @@ import b4a from 'b4a'
 import z32 from 'z32'
 import sodium from 'sodium-native'
 import RoomManager from './lib/RoomManager'
+import { calculateTransfers } from './utils/calculateTransfers'
 
 // TODO: Persistance in joining nodes
 
@@ -62,6 +63,7 @@ async function main() {
       const info = {
         ...parsedData,
         expenditures: [],
+        transfers: [],
         userName: defaultUserName
       }
       // create room and add update listener
@@ -95,6 +97,12 @@ async function main() {
       try {
         const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
         roomInfo.expenditures.push(expenditure)
+
+        const transferInfo = { ...roomInfo, myId: expenditure.creator }
+        const transfers = calculateTransfers(transferInfo)
+        logToFrontend(JSON.stringify(transfers))
+        roomInfo.transfers = transfers
+
         await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
       } catch (err) {
         console.error('Error writing to Autobee:', err)
@@ -110,11 +118,9 @@ async function main() {
       roomManager.updateRoomInfo(roomManager.rooms[roomId])
       try {
         const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
-        roomInfo.members.forEach((member, i) => {
-          if (member.id === roomManager.rooms[roomId].myId) {
-            roomInfo.members[i].name = username
-          }
-        })
+        if (roomInfo.members[roomManager.rooms[roomId].myId]) {
+          roomInfo.members[roomManager.rooms[roomId].myId].name = username
+        }
         await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
       } catch (err) {
         console.error('Error writing to Autobee:', err)
