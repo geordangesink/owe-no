@@ -1,10 +1,11 @@
 const sodium = require('sodium-native')
+const b4a = require('b4a')
 
 function calculateTransfers(room) {
   // Step 1: Calculate the net balance for each member
   const balances = {}
 
-  room.expenditures.forEach((expenditure) => {
+  Object.values(room.expenditures).forEach((expenditure) => {
     Object.keys(expenditure.participants).forEach((participantId) => {
       const value = getOweByParts(expenditure, participantId)
       if (balances[participantId] === undefined) {
@@ -32,7 +33,7 @@ function calculateTransfers(room) {
   })
 
   // Step 3: Calculate the most efficient transfers
-  const transfers = []
+  const transfers = {}
   let debtorIndex = 0
   let creditorIndex = 0
 
@@ -43,14 +44,15 @@ function calculateTransfers(room) {
     const transferAmount = Math.min(debtor.value, creditor.value)
     const id = Buffer.alloc(32)
     sodium.randombytes_buf(id)
-    transfers.push({
-      id,
+    transfers[id] = {
+      id: b4a.from(id),
       date: Date.now(), // Current time as transaction timestamp
       from: debtor.personId,
       to: creditor.personId,
       value: transferAmount,
-      settled: false
-    })
+      settled: false,
+      deprecated: false
+    }
 
     // Update the remaining balances
     debtors[debtorIndex].value -= transferAmount

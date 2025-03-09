@@ -62,8 +62,8 @@ async function main() {
       const parsedData = JSON.parse(b4a.toString(req.data))
       const info = {
         ...parsedData,
-        expenditures: [],
-        transfers: [],
+        expenditures: {},
+        transfers: {},
         userName: defaultUserName
       }
       // create room and add update listener
@@ -92,16 +92,19 @@ async function main() {
       expenditure.creator = roomManager.rooms[roomId].myId
       const expenditureKey = Buffer.alloc(32)
       sodium.randombytes_buf(expenditureKey)
-      expenditure.id = expenditureKey
+      expenditure.id = b4a.from(expenditureKey)
 
       try {
         const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
-        roomInfo.expenditures.push(expenditure)
+        roomInfo.expenditures = {
+          ...roomInfo.expenditures,
+          [expenditure.id]: expenditure
+        }
 
         const transferInfo = { ...roomInfo, myId: expenditure.creator }
         const transfers = calculateTransfers(transferInfo)
         logToFrontend(JSON.stringify(transfers))
-        roomInfo.transfers = transfers
+        roomInfo.transfers = { ...roomInfo.transfers, ...transfers }
 
         await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
       } catch (err) {

@@ -36,6 +36,8 @@ export default function App() {
   const [usernameModalVisible, setUsernameModalVisible] =
     useState<boolean>(false)
   const [roomDebtsVisible, setRoomDebtsVisible] = useState<boolean>(false)
+  const [allInbalancesVisible, setAllInbalancesVisible] =
+    useState<boolean>(false)
 
   const [username, setUsername] = useState<string>('')
   const [expenditureForm, setExpenditureForm] = useState<
@@ -235,9 +237,55 @@ export default function App() {
     return total
   }
 
+  const markSettled = () => {}
+
   const copyToClipboard = () => {
     Clipboard.setString(invite)
     Alert.alert('Copied!', 'Invite has been copied to clipboard.')
+  }
+
+  const MultiHighlightText: React.FC<MultiHighlightTextProps> = ({
+    text,
+    highlights
+  }) => {
+    let parts: (string | Highlight)[] = [text]
+
+    highlights.forEach(({ word, color }) => {
+      parts = parts.flatMap((part) =>
+        typeof part === 'string'
+          ? part
+              .split(new RegExp(`(${word})`, 'gi'))
+              .map((subPart) =>
+                subPart.toLowerCase() === word.toLowerCase()
+                  ? { word: subPart, color }
+                  : subPart
+              )
+          : part
+      )
+    })
+
+    return (
+      <Text>
+        {parts.map((part, index) =>
+          typeof part === 'string' ? (
+            <Text style={{ fontSize: 20, color: '#fff' }} key={index}>
+              {part}
+            </Text>
+          ) : (
+            <Text
+              key={index}
+              style={{
+                color: part.color,
+                fontSize: 20,
+                fontWeight: 'bold'
+              }}
+            >
+              {part.word}
+            </Text>
+          )
+        )}
+      </Text>
+    )
   }
 
   const currentRoom = rooms[currentRoomId || '']
@@ -247,44 +295,125 @@ export default function App() {
       {/* Transfers Screen */}
       {currentRoomId ? (
         roomDebtsVisible ? (
-          <View style={styles.roomContainer}>
-            <View style={styles.header}>
-              <TouchableOpacity onPress={() => setRoomDebtsVisible(false)}>
-                <Text style={styles.backButton}>{'<'}</Text>
-              </TouchableOpacity>
-              <Text style={styles.roomHeader}>
-                {currentRoom?.emoji} {currentRoom?.name}
-              </Text>
-              <Button
-                title='Change Username'
-                onPress={() => setUsernameModalVisible(true)}
-                color='#FF5733'
+          allInbalancesVisible ? (
+            <View style={styles.roomContainer}>
+              <View style={styles.header}>
+                <TouchableOpacity
+                  onPress={() => setAllInbalancesVisible(false)}
+                >
+                  <Text style={styles.backButton}>{'<'}</Text>
+                </TouchableOpacity>
+                <Text style={styles.roomHeader}>
+                  {currentRoom?.emoji} {currentRoom?.name}
+                </Text>
+                <Button
+                  title='Change Username'
+                  onPress={() => setUsernameModalVisible(true)}
+                  color='#FF5733'
+                />
+              </View>
+
+              <View style={styles.header}>
+                <Text style={styles.roomHeader}>
+                  {Object.values(currentRoom.transfers).length > 0
+                    ? 'Money needs to Move:'
+                    : 'All Settled!'}
+                </Text>
+              </View>
+
+              {/* Inbalances List */}
+              <FlatList
+                data={Object.values(currentRoom.transfers).slice().reverse()}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => {
+                  if (item.from === currentRoom.myId) {
+                    return (
+                      <View style={styles.roomItem}>
+                        <Text style={styles.roomEmoji}>💸</Text>
+                        <View style={styles.roomInfo}>
+                          <Text
+                            style={styles.roomName}
+                          >{`${item.value.toFixed(2)} From ${currentRoom.members[item.from].name} To ${currentRoom.members[item.to].name}`}</Text>
+                        </View>
+                      </View>
+                    )
+                  } else if (item.to === currentRoom.myId) {
+                  }
+                }}
               />
             </View>
-
-            <View style={styles.header}>
-              <Text style={styles.roomHeader}>Settle Your Inbalances:</Text>
-            </View>
-
-            {/* Inbalances List */}
-            <FlatList
-              data={Object.values(currentRoom.transfers).slice().reverse()}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={styles.roomItem}>
-                  <Text style={styles.roomEmoji}>{item.emoji}</Text>
-                  <View style={styles.roomInfo}>
-                    <Text
-                      style={styles.roomName}
-                    >{`${item.value.toFixed(2)} From ${currentRoom.members[item.from].name} To ${currentRoom.members[item.to].name}`}</Text>
-                    <Text
-                      style={styles.roomMembers}
-                    >{`${isExpenditureCreator(item, currentRoom.myId) ? "You're Owed:" : 'You Owe:'} ${getOweByParts(item, currentRoom.myId).toFixed(2)}`}</Text>
-                  </View>
+          ) : (
+            <View style={styles.roomContainer}>
+              <View style={styles.header}>
+                <TouchableOpacity onPress={() => setRoomDebtsVisible(false)}>
+                  <Text style={styles.backButton}>{'<'}</Text>
                 </TouchableOpacity>
-              )}
-            />
-          </View>
+                <Text style={styles.roomHeader}>
+                  {currentRoom?.emoji} {currentRoom?.name}
+                </Text>
+                <Button
+                  title='Change Username'
+                  onPress={() => setUsernameModalVisible(true)}
+                  color='#FF5733'
+                />
+              </View>
+
+              <View style={styles.header}>
+                <Text style={styles.roomHeader}>
+                  {Object.values(currentRoom.transfers).length > 0
+                    ? 'Settle Your Inbalances:'
+                    : "You're Settled!"}
+                </Text>
+                <Button
+                  title='Show All'
+                  onPress={() => setAllInbalancesVisible(true)}
+                />
+              </View>
+
+              {/* Inbalances List */}
+              <FlatList
+                data={Object.values(currentRoom.transfers).slice().reverse()}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => {
+                  if (item.to === currentRoom.myId) {
+                    return (
+                      <TouchableOpacity
+                        style={styles.InbalanceItem}
+                        onPress={markSettled}
+                      >
+                        <MultiHighlightText
+                          text={`💰️ ${item.value.toFixed(2)} From ${currentRoom.members[item.from].name}`}
+                          highlights={[
+                            {
+                              word: `${item.value.toFixed(2)}`,
+                              color: '#228B22'
+                            }
+                          ]}
+                        />
+                      </TouchableOpacity>
+                    )
+                  } else if (item.from === currentRoom.myId) {
+                    return (
+                      <TouchableOpacity
+                        style={styles.InbalanceItemReverse}
+                        onPress={markSettled}
+                      >
+                        <MultiHighlightText
+                          text={`${item.value.toFixed(2)} To ${currentRoom.members[item.to].name} 💸`}
+                          highlights={[
+                            {
+                              word: `${item.value.toFixed(2)}`,
+                              color: '#A52A2A'
+                            }
+                          ]}
+                        />
+                      </TouchableOpacity>
+                    )
+                  }
+                }}
+              />
+            </View>
+          )
         ) : (
           // Room Screen
           <View style={styles.roomContainer}>
@@ -654,17 +783,19 @@ type Room = {
   userName: string
   name: string
   members: Record<string, Member>
-  expenditures: Array<Expenditure>
-  transfers: Array<Transfer>
+  expenditures: Record<string, Expenditure>
+  transfers: Record<string, Transfer>
   invite: string
 }
 
 type Transfer = {
+  id: string
   date: number
   from: string
   to: string
   value: Float
   settled: boolean
+  deprecated: boolean
 }
 
 type Expenditure = {
@@ -683,6 +814,16 @@ type Member = {
 // key is the participants ID
 type Participant = {
   parts: number
+}
+
+interface Highlight {
+  word: string
+  color: string
+}
+
+interface MultiHighlightTextProps {
+  text: string
+  highlights: Highlight[]
 }
 
 const styles = StyleSheet.create({
@@ -758,12 +899,34 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginVertical: 5
   },
+  InbalanceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    backgroundColor: '#333',
+    padding: 15,
+    borderRadius: 10,
+    marginVertical: 5
+  },
+  InbalanceItemReverse: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    backgroundColor: '#333',
+    padding: 15,
+    borderRadius: 10,
+    marginVertical: 5
+  },
   roomEmoji: {
     fontSize: 24,
     marginRight: 10
   },
   roomInfo: {
     flex: 1
+  },
+  InbalanceText: {
+    marginRight: 10,
+    marginLeft: 10
   },
   roomName: {
     fontSize: 18,
