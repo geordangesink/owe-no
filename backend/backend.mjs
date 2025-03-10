@@ -17,10 +17,10 @@ if (!fs.existsSync(storagePath)) {
   fs.mkdirSync(storagePath, { recursive: true })
 }
 
-if (fs.existsSync(storagePath)) {
-  fs.rmSync(storagePath, { recursive: true, force: true }) // ❌ Deletes all files
-}
-fs.mkdirSync(storagePath)
+// if (fs.existsSync(storagePath)) {
+//   fs.rmSync(storagePath, { recursive: true, force: true }) // ❌ Deletes all files
+// }
+// fs.mkdirSync(storagePath)
 
 async function main() {
   const roomManager = new RoomManager(storagePath)
@@ -87,6 +87,7 @@ async function main() {
       const room = roomManager.rooms[roomId]
       await room.leave()
       logToFrontend('left room!')
+      delete roomManager.rooms[roomId]
 
       const newReq = rpc.request('deleteRoom')
       newReq.send(roomId)

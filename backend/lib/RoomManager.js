@@ -95,13 +95,16 @@ class RoomManager extends ReadyResource {
 
       const pair = RoomManager.pair(opts.inviteInput, baseOpts)
       room = await pair.finished()
+      room.on('leaveRoom', () => this.deleteRoom(room))
+      // save room if its new
+      if (opts.isNew) room.on('allDataThere', () => this.saveRoom(room))
     } else {
+      // save room if its new
       room = new Room(baseOpts)
+      room.on('leaveRoom', () => this.deleteRoom(room))
+      if (opts.isNew) room.on('allDataThere', () => this.saveRoom(room))
       await room.ready()
     }
-    // save room if its new
-    if (opts.isNew) room.on('allDataThere', () => this.saveRoom(room))
-    room.on('leaveRoom', () => this.deleteRoom(room))
 
     this.rooms[roomId] = room
     room.on('roomClosed', () => {
@@ -159,7 +162,8 @@ class RoomManager extends ReadyResource {
     const roomsInfoMap = roomsInfoDb
       ? jsonToMap(roomsInfoDb.value.toString())
       : new Map()
-    if (!roomsInfoMap.has(room.roomId)) {
+
+    if (roomsInfoMap.has(room.roomId)) {
       roomsInfoMap.delete(room.roomId)
       await this.localBee.put('roomsInfo', Buffer.from(mapToJson(roomsInfoMap)))
     }
@@ -449,16 +453,18 @@ class Room extends ReadyResource {
   }
 
   async leave() {
+    this.emit('leaveRoom')
     if (this.autobee.writable) {
       if (this.autobee.activeWriters.size > 1) {
-        await this.autobee.append({
-          type: 'removeWriter',
-          key: this.autobee.local.key
-        })
+        await this.autobee
+          .append({
+            type: 'removeWriter',
+            key: this.autobee.local.key
+          })
+          .catch(this.exit())
+        await this.exit()
       }
     }
-    await this.exit()
-    this.emit('leaveRoom')
   }
 
   async exit() {
