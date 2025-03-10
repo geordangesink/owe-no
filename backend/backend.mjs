@@ -81,13 +81,25 @@ async function main() {
       logToFrontend(`Invite key: ${room.invite}`)
     }
 
+    if (req.command === 'leaveRoom') {
+      logToFrontend('leaving room...')
+      const roomId = b4a.toString(req.data)
+      const room = roomManager.rooms[roomId]
+      await room.leave()
+      logToFrontend('left room!')
+
+      const newReq = rpc.request('deleteRoom')
+      newReq.send(roomId)
+    }
+
     if (req.command === 'saveExpenditure') {
       logToFrontend('saving Expenditure')
       const parsedData = JSON.parse(b4a.toString(req.data))
 
       const roomId = parsedData.roomId
       const expenditure = parsedData.expenditure
-      expenditure.creator = roomManager.rooms[roomId].myId
+      if (!expenditure.creator)
+        expenditure.creator = roomManager.rooms[roomId].myId
       const expenditureKey = Buffer.alloc(32)
 
       if (!expenditure.id) {

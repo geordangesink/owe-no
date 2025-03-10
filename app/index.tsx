@@ -42,6 +42,8 @@ export default function App() {
     useState<boolean>(false)
   const [settleDebtModalVisible, setSettleDebtModalVisible] =
     useState<boolean>(false)
+  const [leaveRoomModalVisible, setLeaveRoomModalVisible] =
+    useState<boolean>(false)
 
   const [username, setUsername] = useState<string>('')
   const [expenditureForm, setExpenditureForm] = useState<
@@ -68,6 +70,18 @@ export default function App() {
             }))
             setInvite(newRoom.invite)
             console.log(newRoom)
+          }
+
+          if (req.command === 'deleteRoom' && req.data) {
+            const roomId = b4a.toString(req.data)
+            setLeaveRoomModalVisible(false)
+            setCurrentRoomId('')
+
+            setRooms((prevRooms) => {
+              const updatedRooms = { ...prevRooms }
+              delete updatedRooms[roomId]
+              return updatedRooms
+            })
           }
 
           if (req.command === 'newEntry' && req.data) {
@@ -119,9 +133,23 @@ export default function App() {
     }
   }
 
+  const leaveRoom = (roomId: string) => {
+    if (rpcRef.current) {
+      try {
+        const req = rpcRef.current.request('leaveRoom')
+        req.send(roomId)
+      } catch (err) {
+        console.error('error in rpc', err)
+      }
+    } else {
+      console.error('no rpc mounted')
+    }
+  }
+
   const closeCreateRoomModal = () => {
     setCreateRoomModalVisible(false)
     setIsInitialized(false)
+    setInvite('')
     setRoomForm({})
   }
 
@@ -134,6 +162,10 @@ export default function App() {
   }
 
   const createExpenditure = () => {
+    const allParticipants = Object.fromEntries(
+      Object.keys(currentRoom.members).map((member) => [member, 1])
+    )
+    setParticipants(allParticipants)
     setExpenditureForm({})
     setExpenditureModalVisible(true)
   }
@@ -202,7 +234,7 @@ export default function App() {
     }
   }
 
-  const markSettled = (room) => {
+  const markSettled = (room: Room) => {
     if (rpcRef.current && clickedDebt) {
       const data = {
         transferId: clickedDebt,
@@ -353,9 +385,13 @@ export default function App() {
                 >
                   <Text style={styles.backButton}>{'<'}</Text>
                 </TouchableOpacity>
-                <Text style={styles.roomHeader}>
-                  {currentRoom?.emoji} {currentRoom?.name}
-                </Text>
+                <TouchableOpacity
+                  onPress={() => setLeaveRoomModalVisible(true)}
+                >
+                  <Text style={styles.roomHeader}>
+                    {currentRoom?.emoji} {currentRoom?.name}
+                  </Text>
+                </TouchableOpacity>
                 <Button
                   title='Change Username'
                   onPress={() => setUsernameModalVisible(true)}
@@ -401,9 +437,13 @@ export default function App() {
                 <TouchableOpacity onPress={() => setRoomDebtsVisible(false)}>
                   <Text style={styles.backButton}>{'<'}</Text>
                 </TouchableOpacity>
-                <Text style={styles.roomHeader}>
-                  {currentRoom?.emoji} {currentRoom?.name}
-                </Text>
+                <TouchableOpacity
+                  onPress={() => setLeaveRoomModalVisible(true)}
+                >
+                  <Text style={styles.roomHeader}>
+                    {currentRoom?.emoji} {currentRoom?.name}
+                  </Text>
+                </TouchableOpacity>
                 <Button
                   title='Change Username'
                   onPress={() => setUsernameModalVisible(true)}
@@ -500,9 +540,11 @@ export default function App() {
               <TouchableOpacity onPress={closeRoom}>
                 <Text style={styles.backButton}>{'<'}</Text>
               </TouchableOpacity>
-              <Text style={styles.roomHeader}>
-                {currentRoom?.emoji} {currentRoom?.name}
-              </Text>
+              <TouchableOpacity onPress={() => setLeaveRoomModalVisible(true)}>
+                <Text style={styles.roomHeader}>
+                  {currentRoom?.emoji} {currentRoom?.name}
+                </Text>
+              </TouchableOpacity>
               <Button
                 title='Change Username'
                 onPress={() => setUsernameModalVisible(true)}
@@ -591,6 +633,38 @@ export default function App() {
           />
         </View>
       )}
+
+      {/* Leave Room Modal */}
+      <Modal
+        animationType='slide'
+        transparent={true}
+        visible={leaveRoomModalVisible}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>
+              Do You want to leave this Room?
+            </Text>
+
+            {/* Action Buttons */}
+            <View style={styles.buttonContainer}>
+              <Button
+                title='Yes'
+                onPress={() => leaveRoom(currentRoom.roomId)}
+                color='#1E90FF'
+              />
+            </View>
+
+            {/* Close Modal */}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setLeaveRoomModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Cancle</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Settle Debt Modal */}
       <Modal
