@@ -33,7 +33,7 @@ const ReadyResource = require('ready-resource')
 class RoomManager extends ReadyResource {
   constructor(storageDir) {
     super()
-    this.storageDir = storageDir || './calendarStorage'
+    this.storageDir = storageDir || './storage'
     this.corestore = new Corestore(this.storageDir)
     this.localBee = null
     this.swarm = new Hyperswarm()
@@ -93,23 +93,15 @@ class RoomManager extends ReadyResource {
       if (discoveryKey === 'invalid') return false
       else if (discoveryKey) return this._findRoom(discoveryKey)
 
-      console.log('test 1')
-      console.log(baseOpts)
       const pair = RoomManager.pair(opts.inviteInput, baseOpts)
-      console.log('test 2')
       room = await pair.finished()
-      console.log(room)
-      console.log('test 3')
     } else {
-      console.log('test 9')
-      console.log(baseOpts)
       room = new Room(baseOpts)
-      console.log('test 10')
       await room.ready()
-      console.log('test 11')
     }
     // save room if its new
     if (opts.isNew) room.on('allDataThere', () => this.saveRoom(room))
+    room.on('leaveRoom', () => this.deleteRoom(room))
 
     this.rooms[roomId] = room
     room.on('roomClosed', () => {
@@ -132,7 +124,6 @@ class RoomManager extends ReadyResource {
    */
   static pair(invite, opts = {}) {
     const store = opts.corestore
-    console.log(opts)
     return new RoomPairer(store, invite, opts)
   }
 
@@ -162,7 +153,16 @@ class RoomManager extends ReadyResource {
   }
 
   async deleteRoom(room) {
-    // TODO: delete room from storage and db
+    // TODO: purge storage of corestore namespace
+
+    const roomsInfoDb = await this.localBee.get('roomsInfo')
+    const roomsInfoMap = roomsInfoDb
+      ? jsonToMap(roomsInfoDb.value.toString())
+      : new Map()
+    if (!roomsInfoMap.has(room.roomId)) {
+      roomsInfoMap.delete(room.roomId)
+      await this.localBee.put('roomsInfo', Buffer.from(mapToJson(roomsInfoMap)))
+    }
   }
 
   /**
@@ -225,26 +225,19 @@ class RoomPairer extends ReadyResource {
   }
 
   async _open() {
-    console.log('test 4')
-    console.log('store is ready')
-    console.log(this.store)
-    console.log(this.swarm)
     const store = this.store
     this.swarm.on('connection', (connection, peerInfo) => {
       store.replicate(connection)
     })
-    console.log('test 5')
     if (!this.pairing) this.pairing = new BlindPairing(this.swarm)
     const core = Autobee.getLocalCore(this.store)
     await core.ready()
     const key = core.key
     await core.close()
-    console.log('test 6')
     this.candidate = this.pairing.addCandidate({
       invite: z32.decode(this.invite),
       userData: key,
       onadd: async (result) => {
-        console.log('test 7')
         if (this.room === null) {
           this.room = new Room({
             corestore: this.store,
@@ -262,10 +255,8 @@ class RoomPairer extends ReadyResource {
         this.store = null
         if (this.onresolve) this._whenWritable()
         this.candidate.close().catch(noop)
-        console.log('test 8')
       }
     })
-    console.log('test test')
   }
 
   _whenWritable() {
@@ -373,26 +364,20 @@ class Room extends ReadyResource {
    */
   async _open() {
     if (!this.replicate) return
-    console.log('test ready start')
     await this.autobee.ready()
     this.myId = z32.encode(this.autobee.local.key)
 
     this.swarm.on('connection', async (conn) => {
-      console.log('new peer connected!')
       await this.corestore.replicate(conn)
     })
-    console.log('test 12')
     this.pairing = new BlindPairing(this.swarm)
     this.member = this.pairing.addMember({
       discoveryKey: this.autobee.discoveryKey,
       onadd: (candidate) => this._onAddMember(candidate)
     })
-    console.log('test 13')
     await this.member.flushed()
-    console.log('flushed')
     this.opened = true
     this.invite = await this.createInvite()
-    console.log('got invite')
     if (this.isNew) {
       const roomInfo = await this.autobee.get('roomInfo')
 
@@ -414,10 +399,8 @@ class Room extends ReadyResource {
 
       await this.autobee.put('roomInfo', this.info)
     }
-    console.log('added me as member to db')
     this.emit('allDataThere')
     this._joinTopic()
-    console.log('DONE')
   }
 
   async createInvite() {
@@ -439,8 +422,6 @@ class Room extends ReadyResource {
   }
 
   async _onAddMember(candidate) {
-    console.log('adding member')
-    console.log('test 14')
     const id = z32.encode(candidate.inviteId)
     const inviteInfo = await this.autobee.get('inviteInfo')
     if (inviteInfo.id !== id) return
@@ -451,7 +432,6 @@ class Room extends ReadyResource {
       key: this.autobee.key,
       encryptionKey: this.autobee.encryptionKey
     })
-    console.log('added member')
   }
 
   async _connectOtherCore(key) {
@@ -461,23 +441,30 @@ class Room extends ReadyResource {
 
   async _joinTopic() {
     try {
-      console.log('joining topic')
       const discovery = this.swarm.join(this.autobee.discoveryKey)
       await discovery.flushed()
-      console.log('joined topic')
     } catch (err) {
       console.error('Error joining swarm topic', err)
     }
   }
 
   async leave() {
-    // TODO: remove self as writer
+    if (this.autobee.writable) {
+      if (this.autobee.activeWriters.size > 1) {
+        await this.autobee.append({
+          type: 'removeWriter',
+          key: this.autobee.local.key
+        })
+      }
+    }
+    await this.exit()
+    this.emit('leaveRoom')
   }
 
   async exit() {
     await this.member.close()
     await this.autobee.update()
-    this.swarm.leave(this.info.topic)
+    this.swarm.leave(this.autobee.discoveryKey)
     await this.autobee.close()
     this.emit('roomClosed')
   }
