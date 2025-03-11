@@ -54,12 +54,27 @@ npm run ios
 If you encounter a build error, try:
 
 ```sh
+npm start
+```
+
+Then kill the process and try
+
+```sh
 npm run ios
 ```
 
 ---
 
 ## 🔄 Usage Guide
+
+### 🎥 Demo Video
+
+<p align="center">
+  <video width="80%" controls>
+    <source src="./blob/videos/demo.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+</p>
 
 ### 1️⃣ Create a New Room
 
@@ -136,15 +151,15 @@ npm run ios
 ## 🌍 Why Decentralized?
 
 This app removes the need for central servers, giving users:
-✅ **Privacy-first transactions**  
+✅ **Privacy-first debt management**  
 ✅ **No reliance on third parties**  
-✅ **Offline-first functionality**
+✅ **No Downtimes**
 
 ---
 
 ## 💡 Future Improvements
 
-- 🔐 Enhanced security with encrypted transactions
+- 🔐 Settle debts in the App through decentralized transactions
 - 📊 Advanced analytics for expense tracking
 - 🌐 Web support for desktop users
 
