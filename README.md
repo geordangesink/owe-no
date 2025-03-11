@@ -150,6 +150,7 @@ npm run ios
 ## 🌍 Why Decentralized?
 
 This app removes the need for central servers, giving users:
+
 ✅ **Privacy-first debt management**  
 ✅ **No reliance on third parties**  
 ✅ **No Downtimes**
