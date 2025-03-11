@@ -70,10 +70,9 @@ npm run ios
 ### 🎥 Demo Video
 
 <p align="center">
-  <video width="80%" controls>
-    <source src="./blob/videos/demo.mp4" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
+  <a href="https://youtu.be/Sj9Nc_8Zix8" target="_blank">
+    <img src="https://img.youtube.com/vi/Sj9Nc_8Zix8/0.jpg" alt="Watch the demo video" width="80%"/>
+  </a>
 </p>
 
 ### 1️⃣ Create a New Room
