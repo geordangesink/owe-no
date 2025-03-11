@@ -1,59 +1,159 @@
-install dependencies
+# 📱 P2P Debt Management App
+
+A **decentralized mobile app** to split expenses, manage debts, and calculate optimal transfers among friends. Built with **Hyperswarm, Hypercore, Corestore, Hyperbee, Autobase, and Blind Pairing** for secure and efficient peer-to-peer (P2P) connections.
+
+---
+
+## 🚀 Features
+
+- 🔗 **P2P connections** with Hyperswarm
+- 📦 **Decentralized storage** using Hypercore, Corestore & Hyperbee
+- 🔄 **Sync across peers** with Autobase
+- 🔑 **Secure blind pairing** for connecting storages
+- ⚖️ **Optimized debt settlement** with minimal transactions
+- 🏡 **Rooms for shared expenses**
+- ✍️ **Editable expenditures & user adjustments**
+- 💰 **Track settlements & optimize transfers**
+
+---
+
+## 📥 Installation
+
+Before installing dependencies, make sure `bare` is installed globally:
+
+```sh
+npm install -g bare
+```
+
+Then, install project dependencies:
 
 ```sh
 npm install
 ```
 
-Generate a bundle
+---
+
+## 📦 Build
+
+Generate the app bundle:
 
 ```sh
- npx bare-pack --target ios --target android  --linked --out app/app.bundle.mjs backend/backend.mjs
+npx bare-pack --target ios --target android --linked --out app/app.bundle.mjs backend/backend.mjs
 ```
 
-run the app on iOS.
+---
+
+## ▶️ Run the App
+
+### On iOS
 
 ```sh
 npm run ios
 ```
 
-if you get a built error try npm
+If you encounter a build error, try:
 
 ```sh
 npm run ios
 ```
 
-first
+---
 
-create a new room.
-![plot](./blob/images/start_page.png)
-![plot](./blob/images/create_room.png)
-![plot](./blob/images/create_room_modal.png)
+## 🔄 Usage Guide
 
-copy the console loged invite.
-![plot](./blob/images/copy_invite.png)
+### 1️⃣ Create a New Room
 
-paste any join on other node.
-![plot](./blob/images/join_room.png)
+<p align="center">
+  <img src="./blob/images/start_page.png" width="45%"/>
+  <img src="./blob/images/create_room.png" width="45%"/>
+  <img src="./blob/images/create_room_modal.png" width="45%"/>
+</p>
 
-change username.
-![plot](./blob/images/change_username.png)
-![plot](./blob/images/change_username_modal.png)
+### 2️⃣ Copy the Invite Link
 
-create and edit expenditures and adjust parts (can also edit afterwards).
-![plot](./blob/images/create_expenditure.png)
+<p align="center">
+  <img src="./blob/images/copy_invite.png" width="45%"/>
+</p>
 
-check transfers for settlement.
-![plot](./blob/images/show_transactions.png)
-![plot](./blob/images/transactions_list.png)
+### 3️⃣ Join the Room on Another Node
 
-settle debts.
-![plot](./blob/images/settle_debt.png)
-![plot](./blob/images/settle_debt_modal.png)
-![plot](./blob/images/debt_settled.png)
+<p align="center">
+  <img src="./blob/images/join_room.png" width="45%"/>
+</p>
 
-check settlement transfers for whole room.
-![plot](./blob/images/show_all.png)
+### 4️⃣ Change Your Username
 
-leave room.
-![plot](./blob/images/leave_room.png)
-![plot](./blob/images/leave_room_modal.png)
+<p align="center">
+  <img src="./blob/images/change_username.png" width="45%"/>
+  <img src="./blob/images/change_username_modal.png" width="45%"/>
+</p>
+
+### 5️⃣ Add & Edit Expenses
+
+<p align="center">
+  <img src="./blob/images/create_expenditure.png" width="45%"/>
+</p>
+
+### 6️⃣ Check Transfers for Settlement
+
+<p align="center">
+  <img src="./blob/images/show_transactions.png" width="45%"/>
+  <img src="./blob/images/transactions_list.png" width="45%"/>
+</p>
+
+### 7️⃣ Settle Debts
+
+<p align="center">
+  <img src="./blob/images/settle_debt.png" width="45%"/>
+  <img src="./blob/images/settle_debt_modal.png" width="45%"/>
+  <img src="./blob/images/debt_settled.png" width="45%"/>
+</p>
+
+### 8️⃣ View All Settlement Transfers
+
+<p align="center">
+  <img src="./blob/images/show_all.png" width="45%"/>
+</p>
+
+### 9️⃣ Leave the Room
+
+<p align="center">
+  <img src="./blob/images/leave_room.png" width="45%"/>
+  <img src="./blob/images/leave_room_modal.png" width="45%"/>
+</p>
+
+---
+
+## 🛠️ Tech Stack
+
+- **Networking:** Hyperswarm
+- **Storage:** Hypercore, Corestore, Hyperbee
+- **Data Syncing:** Autobase
+- **Security:** Blind Pairing
+
+---
+
+## 🌍 Why Decentralized?
+
+This app removes the need for central servers, giving users:
+✅ **Privacy-first transactions**  
+✅ **No reliance on third parties**  
+✅ **Offline-first functionality**
+
+---
+
+## 💡 Future Improvements
+
+- 🔐 Enhanced security with encrypted transactions
+- 📊 Advanced analytics for expense tracking
+- 🌐 Web support for desktop users
+
+---
+
+## 📜 License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+---
+
+🚀 **Built for a Hackathon – Join us in revolutionizing decentralized finance!**
