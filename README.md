@@ -64,62 +64,62 @@ npm run ios
 ### 1️⃣ Create a New Room
 
 <p align="center">
-  <img src="./blob/images/start_page.png" width="45%"/>
-  <img src="./blob/images/create_room.png" width="45%"/>
-  <img src="./blob/images/create_room_modal.png" width="45%"/>
+  <img src="./blob/images/start_page.png" width="30%"/>
+  <img src="./blob/images/create_room.png" width="30%"/>
+  <img src="./blob/images/create_room_modal.png" width="30%"/>
 </p>
 
 ### 2️⃣ Copy the Invite Link
 
 <p align="center">
-  <img src="./blob/images/copy_invite.png" width="45%"/>
+  <img src="./blob/images/copy_invite.png" width="30%"/>
 </p>
 
 ### 3️⃣ Join the Room on Another Node
 
 <p align="center">
-  <img src="./blob/images/join_room.png" width="45%"/>
+  <img src="./blob/images/join_room.png" width="30%"/>
 </p>
 
 ### 4️⃣ Change Your Username
 
 <p align="center">
-  <img src="./blob/images/change_username.png" width="45%"/>
-  <img src="./blob/images/change_username_modal.png" width="45%"/>
+  <img src="./blob/images/change_username.png" width="30%"/>
+  <img src="./blob/images/change_username_modal.png" width="30%"/>
 </p>
 
 ### 5️⃣ Add & Edit Expenses
 
 <p align="center">
-  <img src="./blob/images/create_expenditure.png" width="45%"/>
+  <img src="./blob/images/create_expenditure.png" width="30%"/>
 </p>
 
 ### 6️⃣ Check Transfers for Settlement
 
 <p align="center">
-  <img src="./blob/images/show_transactions.png" width="45%"/>
-  <img src="./blob/images/transactions_list.png" width="45%"/>
+  <img src="./blob/images/show_transactions.png" width="30%"/>
+  <img src="./blob/images/transactions_list.png" width="30%"/>
 </p>
 
 ### 7️⃣ Settle Debts
 
 <p align="center">
-  <img src="./blob/images/settle_debt.png" width="45%"/>
-  <img src="./blob/images/settle_debt_modal.png" width="45%"/>
-  <img src="./blob/images/debt_settled.png" width="45%"/>
+  <img src="./blob/images/settle_debt.png" width="30%"/>
+  <img src="./blob/images/settle_debt_modal.png" width="30%"/>
+  <img src="./blob/images/debt_settled.png" width="30%"/>
 </p>
 
 ### 8️⃣ View All Settlement Transfers
 
 <p align="center">
-  <img src="./blob/images/show_all.png" width="45%"/>
+  <img src="./blob/images/show_all.png" width="30%"/>
 </p>
 
 ### 9️⃣ Leave the Room
 
 <p align="center">
-  <img src="./blob/images/leave_room.png" width="45%"/>
-  <img src="./blob/images/leave_room_modal.png" width="45%"/>
+  <img src="./blob/images/leave_room.png" width="30%"/>
+  <img src="./blob/images/leave_room_modal.png" width="30%"/>
 </p>
 
 ---
