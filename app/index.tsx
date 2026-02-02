@@ -56,9 +56,8 @@ export default function App() {
 
   useEffect(() => {
     const worklet = new Worklet()
-    worklet
-      .start('/app.bundle', bundle, [])
-      .then(() => {
+    worklet.start('/app.bundle', bundle, [])
+
         const { IPC } = worklet
         rpcRef.current = new RPC(IPC, (req) => {
           if (req.command === 'newRoom' && req.data) {
@@ -98,10 +97,6 @@ export default function App() {
             console.log('[Worklet Log]:', b4a.toString(req.data))
           }
         })
-      })
-      .catch((err) => {
-        console.error('Error in worklet:', err)
-      })
   }, [])
 
   const joinRoom = () => {

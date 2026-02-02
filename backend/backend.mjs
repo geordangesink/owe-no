@@ -3,7 +3,7 @@ import fs from 'bare-fs'
 import b4a from 'b4a'
 import z32 from 'z32'
 import sodium from 'sodium-native'
-import RoomManager from './lib/RoomManager'
+import FlockManager from 'flockmanager'
 import { calculateTransfers } from './utils/calculateTransfers'
 
 const { IPC } = BareKit
@@ -23,13 +23,14 @@ if (!fs.existsSync(storagePath)) {
 // fs.mkdirSync(storagePath)
 
 async function main() {
-  const roomManager = new RoomManager(storagePath)
-  await roomManager.ready()
+  const flockManager = new FlockManager(storagePath)
+  await flockManager.ready()
   let defaultUserName = 'Unnamed User'
+  await flockManager.setUserData({ name: defaultUserName })
 
   Bare.on('beforeExit', cleanup)
   async function cleanup() {
-    await roomManager.cleanup()
+    await flockManager.cleanup()
     if (fs.existsSync(storagePath)) {
       try {
         fs.accessSync(storagePath, fs.constants.R_OK | fs.constants.W_OK)
@@ -42,52 +43,67 @@ async function main() {
       logToFrontend('Joining room using invite key...')
       const inviteKey = b4a.toString(req.data)
 
-      const room = await roomManager.initRoom({
-        inviteInput: inviteKey,
-        isNew: true,
-        info: { userName: defaultUserName }
-      })
-      logToFrontend(z32.encode(room.autobee.key))
-      logToFrontend(z32.encode(room.autobee.discoveryKey))
-      logToFrontend(room.myId)
-      logToFrontend(JSON.stringify(room.info))
-      addAutobeeListener(room)
+      const flock = await flockManager.create(inviteKey, {
+        custom: { userName: defaultUserName },
+        isNew: true
+      }, true)
+      if (!flock) {
+        logToFrontend('Invalid invite or already joined')
+        return
+      }
+      logToFrontend(z32.encode(flock.autobee.key))
+      logToFrontend(z32.encode(flock.autobee.discoveryKey))
+      logToFrontend(flock.myId)
+      const roomInfo = await flock.get('roomInfo')
+      logToFrontend(JSON.stringify(roomInfo || flock.custom))
+      addFlockListener(flock)
     }
 
     if (req.command === 'createRoom') {
       logToFrontend('Creating a new room...')
-      // get room info from frontend
       const parsedData = JSON.parse(b4a.toString(req.data))
-      const info = {
+      const custom = {
         ...parsedData,
         expenditures: {},
         transfers: {},
         userName: defaultUserName
       }
-      // create room and add update listener
-      const room = await roomManager.initRoom({ isNew: true, info })
+      const flock = await flockManager.create('', { custom, isNew: true }, true)
 
-      addAutobeeListener(room)
       const roomInfo = {
-        ...room.info,
-        roomId: room.roomId,
-        invite: room.invite
+        ...flock.custom,
+        members: { [flock.myId]: { name: defaultUserName } },
+        expenditures: {},
+        transfers: {}
+      }
+      await flock.set('roomInfo', roomInfo)
+
+      addFlockListener(flock)
+      const payload = {
+        ...roomInfo,
+        roomId: flock.localId,
+        myId: flock.myId,
+        invite: flock.invite
       }
       const newReq = rpc.request('newRoom')
-      newReq.send(JSON.stringify(roomInfo))
-      logToFrontend(z32.encode(room.autobee.key))
-      logToFrontend(z32.encode(room.autobee.discoveryKey))
-      logToFrontend(room.myId)
-      logToFrontend(`Invite key: ${room.invite}`)
+      newReq.send(JSON.stringify(payload))
+      logToFrontend(z32.encode(flock.autobee.key))
+      logToFrontend(z32.encode(flock.autobee.discoveryKey))
+      logToFrontend(flock.myId)
+      logToFrontend(`Invite key: ${flock.invite}`)
     }
 
     if (req.command === 'leaveRoom') {
       logToFrontend('leaving room...')
       const roomId = b4a.toString(req.data)
-      const room = roomManager.rooms[roomId]
-      await room.leave()
+      const flock = flockManager.all[roomId]
+      if (!flock) {
+        logToFrontend('room not found')
+        return
+      }
+      await flock.leave()
       logToFrontend('left room!')
-      delete roomManager.rooms[roomId]
+      delete flockManager.all[roomId]
 
       const newReq = rpc.request('deleteRoom')
       newReq.send(roomId)
@@ -99,8 +115,9 @@ async function main() {
 
       const roomId = parsedData.roomId
       const expenditure = parsedData.expenditure
-      if (!expenditure.creator)
-        expenditure.creator = roomManager.rooms[roomId].myId
+      const flock = flockManager.all[roomId]
+      if (!flock) return
+      if (!expenditure.creator) expenditure.creator = flock.myId
       const expenditureKey = Buffer.alloc(32)
 
       if (!expenditure.id) {
@@ -109,17 +126,14 @@ async function main() {
       }
 
       try {
-        const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
+        const roomInfo = await flock.get('roomInfo') || {}
         roomInfo.expenditures = {
-          ...roomInfo.expenditures,
+          ...(roomInfo.expenditures || {}),
           [expenditure.id]: expenditure
         }
-
         logToFrontend(JSON.stringify(calculateTransfers(roomInfo)))
-        // TODO: Need to add "deprecated"
         roomInfo.transfers = calculateTransfers(roomInfo)
-
-        await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
+        await flock.set('roomInfo', roomInfo)
       } catch (err) {
         console.error('Error writing to Autobee:', err)
       }
@@ -130,15 +144,15 @@ async function main() {
       const parsedData = JSON.parse(b4a.toString(req.data))
       const roomId = parsedData.roomId
       const expenditureId = parsedData.expenditureId
+      const flock = flockManager.all[roomId]
+      if (!flock) return
       try {
-        const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
-        if (expenditureId in roomInfo.expenditures) {
+        const roomInfo = await flock.get('roomInfo') || {}
+        if (roomInfo.expenditures && expenditureId in roomInfo.expenditures) {
           delete roomInfo.expenditures[expenditureId]
-
           logToFrontend(JSON.stringify(calculateTransfers(roomInfo)))
-          // TODO: Need to add "deprecated"
           roomInfo.transfers = calculateTransfers(roomInfo)
-          await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
+          await flock.set('roomInfo', roomInfo)
         }
       } catch (err) {
         console.error('Error in updating Autobee', err)
@@ -150,14 +164,16 @@ async function main() {
       const parsedData = JSON.parse(b4a.toString(req.data))
       const roomId = parsedData.roomId
       const username = parsedData.username
-      roomManager.rooms[roomId].info.userName = username
-      roomManager.updateRoomInfo(roomManager.rooms[roomId])
+      defaultUserName = username
+      await flockManager.setUserData({ name: username })
+      const flock = flockManager.all[roomId]
+      if (!flock) return
       try {
-        const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
-        if (roomInfo.members[roomManager.rooms[roomId].myId]) {
-          roomInfo.members[roomManager.rooms[roomId].myId].name = username
+        const roomInfo = await flock.get('roomInfo') || {}
+        if (roomInfo.members && roomInfo.members[flock.myId]) {
+          roomInfo.members[flock.myId].name = username
         }
-        await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
+        await flock.set('roomInfo', roomInfo)
       } catch (err) {
         console.error('Error writing to Autobee:', err)
       }
@@ -167,17 +183,20 @@ async function main() {
       const parsedData = JSON.parse(b4a.toString(req.data))
       const transferId = parsedData.transferId
       const roomId = parsedData.roomId
+      const flock = flockManager.all[roomId]
+      if (!flock) return
       try {
-        const roomInfo = await roomManager.rooms[roomId].autobee.get('roomInfo')
-        // on matching id, switch true/false settled state
-        Object.keys(roomInfo.transfers).forEach((id) =>
-          transferId === id
-            ? roomInfo.transfers[id].settled === true
-              ? (roomInfo.transfers[id].settled = false)
-              : (roomInfo.transfers[id].settled = true)
-            : null
-        )
-        await roomManager.rooms[roomId].autobee.put('roomInfo', roomInfo)
+        const roomInfo = await flock.get('roomInfo') || {}
+        if (roomInfo.transfers) {
+          Object.keys(roomInfo.transfers).forEach((id) =>
+            transferId === id
+              ? roomInfo.transfers[id].settled === true
+                ? (roomInfo.transfers[id].settled = false)
+                : (roomInfo.transfers[id].settled = true)
+              : null
+          )
+          await flock.set('roomInfo', roomInfo)
+        }
       } catch (err) {
         console.error('Error writing to Autobee', err)
       }
@@ -187,12 +206,12 @@ async function main() {
   logToFrontend('Worklet started!')
 
   async function openSavedRooms() {
-    for (const roomId in roomManager.rooms) {
-      logToFrontend(`opening room: ${roomId}`)
-      const room = roomManager.rooms[roomId]
-      const beeInfo = await room.autobee.get('roomInfo')
-      updateRoom(beeInfo, room)
-      addAutobeeListener(roomManager.rooms[roomId])
+    for (const localId in flockManager.all) {
+      logToFrontend(`opening room: ${localId}`)
+      const flock = flockManager.all[localId]
+      const roomInfo = await flock.get('roomInfo')
+      updateRoom(roomInfo, flock)
+      addFlockListener(flock)
     }
   }
   openSavedRooms()
@@ -202,28 +221,27 @@ async function main() {
     req.send(message)
   }
 
-  function updateRoom(update, room) {
+  function updateRoom(update, flock) {
     const req = rpc.request('newEntry')
     if (update) {
       const newInfo = {
         ...update,
-        roomId: room.roomId,
-        myId: room.myId,
-        invite: room.invite
+        roomId: flock.localId,
+        myId: flock.myId,
+        invite: flock.invite
       }
 
       req.send(JSON.stringify(newInfo))
     }
   }
 
-  function addAutobeeListener(room) {
-    room.on('update', async () => {
+  function addFlockListener(flock) {
+    flock.on('update', async () => {
       logToFrontend('New roomInfo entry detected!')
 
-      const update = await room.autobee.get('roomInfo')
+      const update = await flock.get('roomInfo')
 
-      // currently sends everyting to frontend
-      updateRoom(update, room)
+      updateRoom(update, flock)
     })
   }
 }
